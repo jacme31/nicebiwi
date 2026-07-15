@@ -1,27 +1,29 @@
 # Biwipy Proto (NiceGUI)
 
-Prototype minimal d'interface graphique pour utiliser et tester `biwipy` rapidement.
+[English](README.md) | [Francais](README.fr.md)
 
-## Environnement recommande
+Minimal GUI prototype to quickly run and test `biwipy`.
 
-Le mode recommande pour ce proto est d'utiliser un environnement conda, par exemple :`biwipy-pypi`, dans lequel `biwipy` et `nicegui` sont déjà installes.
+## Recommended environment
+
+The recommended way to run this prototype is to use a conda environment such as `biwipy-pypi`, where `biwipy` and `nicegui` are already installed.
 
 ```powershell
 conda activate biwipy-pypi
 python nicebiwi.py
 ```
 
-Dans VS Code, sélectionner aussi l'interpréteur Python de cet environnement pour éviter les faux warnings d'import.
+In VS Code, also select the Python interpreter from this environment to avoid false import warnings.
 
-Note:
-- [nicebiwi.py](nicebiwi.py) contient un fallback de developpement qui peut importer le workspace voisin `../biwipy` si besoin.
-- Ce fallback n'est pas le chemin d'execution cible; l'environnement `biwipy-pypi` reste la reference de lancement recommandee.
+Notes:
+- [nicebiwi.py](nicebiwi.py) includes a development fallback that can import the neighboring workspace `../biwipy` if needed.
+- This fallback is not the target execution path. The `biwipy-pypi` environment remains the recommended launch setup.
 
-## Alternative locale
+## Local alternative
 
-Si tu ne veux pas utiliser l'environnement conda partage, tu peux aussi créer un environnement local pour le proto.
+If you do not want to use the shared conda environment, you can create a local environment for this prototype.
 
-## 1) Creation de l'environnement (Windows / PowerShell)
+## 1) Create the environment (Windows / PowerShell)
 
 ```powershell
 python -m venv .venv
@@ -29,7 +31,7 @@ python -m venv .venv
 python -m pip install --upgrade pip
 ```
 
-## 2) Installation des dependances
+## 2) Install dependencies
 
 ```powershell
 pip install -r requirements.txt
@@ -37,27 +39,27 @@ pip install -e ../biwipy
 ```
 
 Notes:
-- `biwipy` depend de `pygrib`.
-- Sur Windows, `pygrib` se gere souvent plus simplement via conda-forge.
+- `biwipy` depends on `pygrib`.
+- On Windows, `pygrib` is often easier to manage with conda-forge.
 
-## 3) Lancer le proto
+## 3) Run the prototype
 
 ```powershell
 python nicebiwi.py
 ```
 
-Puis ouvrir: <http://127.0.0.1:8081>
+Then open: <http://127.0.0.1:8081>
 
-## Fonctionnalites du proto
+## Prototype features
 
-- Gestion de profils cyclistes 
-- Choix d'un modèle météo (GFS, IFS ou aucun)
-- Upload d'un fichier GPX
-- Simulation et Replay (si le GPX contient des timestamps)
-- Affichage des stats de base (distance, timestamps, duree)
-- Graphiques optionnels et carte interactive 
+- Cyclist profile management
+- Weather model selection (GFS, IFS, or none)
+- GPX file upload
+- Simulation and Replay (if GPX contains timestamps)
+- Basic stats display (distance, timestamps, duration)
+- Optional charts and interactive map
 
-## Internationalisation UI
+## UI internationalization
 
-- Les traductions UI sont externalisees dans [i18n/fr.json](i18n/fr.json) et [i18n/en.json](i18n/en.json)
-- Le code charge ces fichiers au demarrage depuis [nicebiwi.py](nicebiwi.py)
+- UI translations are externalized in [i18n/fr.json](i18n/fr.json) and [i18n/en.json](i18n/en.json)
+- Code loads these files at startup from [nicebiwi.py](nicebiwi.py)
