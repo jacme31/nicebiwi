@@ -1,17 +1,17 @@
 # Biwipy Proto (NiceGUI)
 
-Prototype minimal d'interface graphique pour tester `biwipy` rapidement.
+Prototype minimal d'interface graphique pour utiliser et tester `biwipy` rapidement.
 
 ## Environnement recommande
 
-Le mode recommande pour ce proto est d'utiliser l'environnement conda `biwipy-pypi`, dans lequel `biwipy` et `nicegui` sont deja installes.
+Le mode recommande pour ce proto est d'utiliser un environnement conda, par exemple :`biwipy-pypi`, dans lequel `biwipy` et `nicegui` sont déjà installes.
 
 ```powershell
 conda activate biwipy-pypi
 python nicebiwi.py
 ```
 
-Dans VS Code, selectionner aussi l'interpreteur Python de cet environnement pour eviter les faux warnings d'import.
+Dans VS Code, sélectionner aussi l'interpréteur Python de cet environnement pour éviter les faux warnings d'import.
 
 Note:
 - [nicebiwi.py](nicebiwi.py) contient un fallback de developpement qui peut importer le workspace voisin `../biwipy` si besoin.
@@ -19,7 +19,7 @@ Note:
 
 ## Alternative locale
 
-Si tu ne veux pas utiliser l'environnement conda partage, tu peux aussi creer un environnement local pour le proto.
+Si tu ne veux pas utiliser l'environnement conda partage, tu peux aussi créer un environnement local pour le proto.
 
 ## 1) Creation de l'environnement (Windows / PowerShell)
 
@@ -50,10 +50,12 @@ Puis ouvrir: <http://127.0.0.1:8081>
 
 ## Fonctionnalites du proto
 
+- Gestion de profils cyclistes 
+- Choix d'un modèle météo (GFS, IFS ou aucun)
 - Upload d'un fichier GPX
-- Analyse via `RouteAnalyzer.process_gpx()`
+- Simulation et Replay (si le GPX contient des timestamps)
 - Affichage des stats de base (distance, timestamps, duree)
-- Replay sans meteo via `Simulator(grib=None)` si le GPX contient des timestamps
+- Graphiques optionnels et carte interactive 
 
 ## Internationalisation UI
 
