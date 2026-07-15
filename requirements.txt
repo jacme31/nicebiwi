@@ -1,0 +1,3 @@
+nicegui>=2.0
+# Install local biwipy package from sibling workspace:
+# pip install -e ../biwipy

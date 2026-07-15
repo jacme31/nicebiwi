@@ -1,0 +1,18 @@
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+.venv/
+venv/
+
+# Editor settings
+.vscode/
+*.code-workspace
+
+# Generated app artifacts
+.generated_maps/
+
+# OS files
+.DS_Store
+Thumbs.db
