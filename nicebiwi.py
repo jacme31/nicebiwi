@@ -46,6 +46,7 @@ from biwipy.visualization.interactive_map import create_interactive_map
 from biwipy.analysis.tactical_analysis import (
     analyze_echelon_opportunities,
     print_echelon_report,
+    merge_adjacent_zones,
 )
 
 
@@ -1357,11 +1358,14 @@ def capture_summary_statistics(result: Any, label: str = "") -> str:
                 # get_time_at_km only exists on a full Simulator result, not on cached raw segments.
                 get_time_at_km = getattr(result, "get_time_at_km", None)
                 if zones and callable(get_time_at_km):
+                    # Merge zones the same way print_echelon_report does, so times match the displayed zones.
+                    merged_zones = merge_adjacent_zones(zones)
                     buffer.write("\nHeures de passage estimees dans les zones de bordure :\n")
-                    for zone in zones:
+                    for zone in merged_zones:
                         km_mid = 0.5 * (float(zone.get("km_start", 0.0)) + float(zone.get("km_end", 0.0)))
                         passage_time = get_time_at_km(km_mid)
-                        time_txt = passage_time.strftime("%H:%M:%S") if passage_time is not None else "n/a"
+                        # get_time_at_km returns UTC; display in the local system timezone.
+                        time_txt = passage_time.astimezone().strftime("%H:%M:%S") if passage_time is not None else "n/a"
                         buffer.write(
                             f"  - km {zone.get('km_start', 0.0):.1f} -> {zone.get('km_end', 0.0):.1f} "
                             f"({zone.get('risk', '?')}) : passage estime a {time_txt}\n"
