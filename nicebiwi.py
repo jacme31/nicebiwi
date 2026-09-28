@@ -43,6 +43,10 @@ from biwipy.analysis.anareswind import (
     compare_scenarios,
 )
 from biwipy.visualization.interactive_map import create_interactive_map
+from biwipy.analysis.tactical_analysis import (
+    analyze_echelon_opportunities,
+    print_echelon_report,
+)
 
 
 GENERATED_MAPS_DIR = WORKSPACE_ROOT / ".generated_maps"
@@ -110,6 +114,8 @@ DEFAULT_PERSISTED_PARAMS = {
     "map_enable_animation": False,
     "map_distance_from_finish": False,
     "process_gpx_verbose": True,
+    "min_crosswind_kmh": 20.0,
+    "min_distance_m": 1000.0,
 }
 
 state: dict[str, Any] = {
@@ -173,6 +179,7 @@ state: dict[str, Any] = {
         "weather_use_raster_roughness": False,
         "map_enable_animation": False,
         "map_distance_from_finish": False,
+        "is_race": False,
         "process_gpx_verbose": True,
         "smoothing_window": 17,
     },
@@ -603,8 +610,10 @@ def get_run_reference_datetime(record: dict[str, Any]) -> str | None:
 
     if kind in {"replay_no_weather", "replay_weather"}:
         return route.get("start")
-    if kind == "future_weather":
-        return weather.get("start_utc") or params.get("sim_start")
+    if kind in {"future_weather", "future_no_weather"}:
+        # Future simulations should reference the chosen simulation start,
+        # including no-weather mode where no weather timestamp exists.
+        return weather.get("start_utc") or params.get("sim_start") or record.get("created_at")
     return record.get("created_at")
 
 
@@ -695,6 +704,8 @@ def normalize_gui_settings(raw: dict[str, Any]) -> dict[str, Any]:
         "map_enable_animation": _coerce_bool(raw.get("map_enable_animation"), DEFAULT_PERSISTED_PARAMS["map_enable_animation"]),
         "map_distance_from_finish": _coerce_bool(raw.get("map_distance_from_finish"), DEFAULT_PERSISTED_PARAMS["map_distance_from_finish"]),
         "process_gpx_verbose": _coerce_bool(raw.get("process_gpx_verbose"), DEFAULT_PERSISTED_PARAMS["process_gpx_verbose"]),
+        "min_crosswind_kmh": _coerce_float(raw.get("min_crosswind_kmh"), DEFAULT_PERSISTED_PARAMS["min_crosswind_kmh"], 1.0),
+        "min_distance_m": _coerce_float(raw.get("min_distance_m"), DEFAULT_PERSISTED_PARAMS["min_distance_m"], 50.0),
     }
 
 
@@ -712,6 +723,8 @@ def collect_persisted_settings_from_state() -> dict[str, Any]:
         "map_enable_animation": bool(params["map_enable_animation"]),
         "map_distance_from_finish": bool(params["map_distance_from_finish"]),
         "process_gpx_verbose": bool(params["process_gpx_verbose"]),
+        "min_crosswind_kmh": float(params["min_crosswind_kmh"]),
+        "min_distance_m": float(params["min_distance_m"]),
     }
 
 
@@ -1293,6 +1306,19 @@ def get_future_target_kwargs() -> tuple[dict[str, float], str]:
     return {"P0": p0}, tr("sim_target_used_p0", value=p0)
 
 
+def _segments_for_echelon(source: Any) -> list | None:
+    """Best-effort segments extraction, accepting either a Simulator result or a raw segments list."""
+    if isinstance(source, list):
+        return source
+    get_segments = getattr(source, "get_segments", None)
+    if callable(get_segments):
+        try:
+            return cast(Any, get_segments())
+        except Exception:
+            return None
+    return None
+
+
 def capture_summary_statistics(result: Any, label: str = "") -> str:
     """Run print_summary_statistics and capture its stdout as a string."""
     buffer = io.StringIO()
@@ -1309,6 +1335,40 @@ def capture_summary_statistics(result: Any, label: str = "") -> str:
             os.environ.pop("OUTPUT_LANG", None)
         else:
             os.environ["OUTPUT_LANG"] = previous_output_lang
+
+    if bool(state["params"].get("is_race", False)):
+        segments = _segments_for_echelon(result)
+        if segments:
+            min_crosswind_kmh = float(state["params"].get("min_crosswind_kmh", 20.0))
+            min_distance_m = float(state["params"].get("min_distance_m", 1000.0))
+            try:
+                zones = analyze_echelon_opportunities(
+                    segments,
+                    min_crosswind_kmh=min_crosswind_kmh,
+                    min_distance_m=min_distance_m,
+                )
+                buffer.write(
+                    f"\n[Seuils bordures utilises] vent de cote >= {min_crosswind_kmh:.1f} km/h, "
+                    f"distance >= {min_distance_m:.0f} m\n"
+                )
+                with contextlib.redirect_stdout(buffer):
+                    print_echelon_report(zones)
+
+                # get_time_at_km only exists on a full Simulator result, not on cached raw segments.
+                get_time_at_km = getattr(result, "get_time_at_km", None)
+                if zones and callable(get_time_at_km):
+                    buffer.write("\nHeures de passage estimees dans les zones de bordure :\n")
+                    for zone in zones:
+                        km_mid = 0.5 * (float(zone.get("km_start", 0.0)) + float(zone.get("km_end", 0.0)))
+                        passage_time = get_time_at_km(km_mid)
+                        time_txt = passage_time.strftime("%H:%M:%S") if passage_time is not None else "n/a"
+                        buffer.write(
+                            f"  - km {zone.get('km_start', 0.0):.1f} -> {zone.get('km_end', 0.0):.1f} "
+                            f"({zone.get('risk', '?')}) : passage estime a {time_txt}\n"
+                        )
+            except Exception as exc:
+                buffer.write(f"\n[Erreur analyze_echelon_opportunities: {exc}]")
+
     return buffer.getvalue()
 
 
@@ -2336,6 +2396,12 @@ def left_panel() -> None:
 
             ui.upload(on_upload=on_gpx_upload, auto_upload=True, label=tr("upload_gpx")).props("accept=.gpx")
 
+            ui.checkbox(
+                tr("route_is_race"),
+                value=bool(state["params"].get("is_race", False)),
+                on_change=lambda e: set_param_and_refresh("is_race", bool(e.value)),
+            )
+
         with ui.card().classes("w-full"):
             ui.label(tr("cyclist_params")).classes("text-h6")
             ui.label(tr("cyclist_params_dir", value=str(state["params"].get("cyclist_params_dir", "")))).classes("text-caption text-grey-6")
@@ -2511,18 +2577,36 @@ def setup_panel() -> None:
                 value=state["setup_form"]["weather_model"],
                 label=tr("weather_model"),
                 on_change=lambda e: set_setup_field("weather_model", str(e.value)),
-            )
+            ).classes("w-full")
             ui.select(
                 weather_pas_options(),
                 value=int(state["setup_form"]["weather_pas"]),
                 label=tr("weather_pas"),
                 on_change=lambda e: set_setup_field("weather_pas", int(e.value)),
-            )
+            ).classes("w-full")
             ui.switch(
                 tr("setup_weather_use_raster_roughness"),
                 value=bool(state["setup_form"].get("weather_use_raster_roughness", False)),
                 on_change=lambda e: set_setup_field("weather_use_raster_roughness", bool(e.value)),
             )
+            ui.number(
+                tr("setup_min_crosswind_kmh"),
+                value=state["setup_form"].get("min_crosswind_kmh", DEFAULT_PERSISTED_PARAMS["min_crosswind_kmh"]),
+                min=1.0,
+                max=100.0,
+                step=1.0,
+                format="%.1f",
+                on_change=lambda e: set_setup_field("min_crosswind_kmh", float(e.value) if e.value is not None else DEFAULT_PERSISTED_PARAMS["min_crosswind_kmh"]),
+            ).classes("w-full")
+            ui.number(
+                tr("setup_min_distance_m"),
+                value=state["setup_form"].get("min_distance_m", DEFAULT_PERSISTED_PARAMS["min_distance_m"]),
+                min=50.0,
+                max=20000.0,
+                step=50.0,
+                format="%.0f",
+                on_change=lambda e: set_setup_field("min_distance_m", float(e.value) if e.value is not None else DEFAULT_PERSISTED_PARAMS["min_distance_m"]),
+            ).classes("w-full")
             ui.switch(
                 tr("setup_map_enable_animation"),
                 value=bool(state["setup_form"].get("map_enable_animation", False)),
